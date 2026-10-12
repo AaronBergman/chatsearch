@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+test/.out/
+test/e2e/out/
+test/e2e/.certs/
+relay/data/
+.railway/
+context/
+claude_code/
+.remember/
+.DS_Store
+*.log
