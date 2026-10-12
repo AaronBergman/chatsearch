@@ -64,6 +64,7 @@ In the address bar, type `cs`, a space, and your search to get results right in 
 
 - **Claude**: the full history is listed and downloaded on first run (a few thousand chats take a few minutes), then a light incremental check runs every minute or two.
 - **ChatGPT** only allows a slow pace of full-conversation reads, shared with your own use of the site. ChatSearch therefore lists every chat right away (titles are searchable immediately), downloads full text at a gentle pace, pauses while you are using ChatGPT, and backs off for half an hour or more if ChatGPT ever says to slow down. To get everything at once, import your ChatGPT data export (Settings, Your data, Import): ChatGPT emails you a zip, and ChatSearch reads it locally.
+- If a site shows your browser a "checking your browser" page instead of data (common in brand-new browser profiles), ChatSearch says so and resumes the moment you open that site in a tab.
 - **Live capture**: when you open or reply to a chat on either site, ChatSearch indexes what the page already loaded, so the chats you actually use are always fresh without extra requests.
 - Deleted and renamed chats are noticed and updated.
 

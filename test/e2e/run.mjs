@@ -281,6 +281,31 @@ await check('new chat elsewhere shows up after a sync', async () => {
   return `visible ${Date.now() - ms0} ms after sync-now`;
 });
 
+await check('bot-check page: not mistaken for sign-out or rate limit, and visiting the site resumes at once', async () => {
+  mock.setChallenge(true);
+  const p = await ctx.newPage();
+  await p.goto(ext('popup.html'));
+  await p.evaluate(() => chrome.runtime.sendMessage({ type: 'sync-now', source: 'claude' }));
+  const st = await until(async () => {
+    const s = (await status()).claude;
+    return s && s.state === 'paused' && /quick check/.test(s.message || '') ? s : s?.state === 'signed-out' ? new Error('reported signed-out') : null;
+  }, 15000, 'blocked state');
+  const minutes = Math.round((st.pausedUntil - Date.now()) / 60000);
+  assert(minutes <= 5, `paused for ${minutes} min`);
+  mock.setChallenge(false);
+  mock.addClaude({ uuid: 'c9000000-0000-4000-8000-000000000002', name: 'Tide pools at Point Reyes', turns: [['best tide pooling near point reyes?', 'Try Sculptured Beach at a minus tide, early morning.']], updated: Date.now() });
+  const page = await ctx.newPage();
+  const ms0 = Date.now();
+  await page.goto(`https://claude.ai/chat/${data.claude[1].uuid}`);
+  await until(async () => {
+    const s = (await status()).claude;
+    return s && s.state === 'idle' && s.fetched >= data.claude.length ? s : null;
+  }, 15000, 'resume after visiting claude.ai');
+  await page.close();
+  await p.close();
+  return `blocked for ${minutes} min max, "${st.message}"; resumed ${Date.now() - ms0} ms after opening claude.ai`;
+});
+
 if (SEMANTIC) {
   await check('semantic search: "where do birds fly when it gets cold" -> birding chat', async () => {
     const p = await ctx.newPage();

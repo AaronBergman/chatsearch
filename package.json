@@ -1,6 +1,6 @@
 {
   "name": "chatsearch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Real search for your Claude and ChatGPT history: instant substring, fuzzy and semantic search, fully local index.",
   "type": "module",

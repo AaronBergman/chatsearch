@@ -4,6 +4,8 @@ export class HttpError extends Error {
     message: string,
     public retryAfter?: number,
     public body?: string,
+    /** a bot-check / challenge page (Cloudflare) instead of the API: visiting the site in a tab clears it */
+    public blocked = false,
   ) {
     super(message);
   }
@@ -11,7 +13,7 @@ export class HttpError extends Error {
     return this.status === 429;
   }
   get authFailed() {
-    return this.status === 401 || this.status === 403;
+    return !this.blocked && (this.status === 401 || this.status === 403);
   }
 }
 
@@ -29,14 +31,14 @@ export async function getJSON<T = any>(url: string, init: RequestInit = {}, time
   const text = await res.text();
   if (!res.ok) {
     const ra = Number(res.headers.get('retry-after'));
-    // Cloudflare challenge pages come back as HTML 403s: treat like a throttle
-    const isHtml = /^\s*</.test(text);
-    throw new HttpError(isHtml && res.status === 403 ? 429 : res.status, `${res.status} ${text.slice(0, 200)}`, Number.isFinite(ra) && ra > 0 ? ra * 1000 : undefined, text.slice(0, 2000));
+    // Cloudflare challenge pages come back as HTML (usually 403): not a login problem and not a throttle
+    const blocked = /^\s*</.test(text) || res.headers.get('cf-mitigated') === 'challenge';
+    throw new HttpError(res.status, `${res.status} ${text.slice(0, 200)}`, Number.isFinite(ra) && ra > 0 ? ra * 1000 : undefined, text.slice(0, 2000), blocked && res.status !== 429);
   }
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new HttpError(res.status, `bad json from ${new URL(url).pathname}: ${text.slice(0, 120)}`);
+    throw new HttpError(res.status, `bad json from ${new URL(url).pathname}: ${text.slice(0, 120)}`, undefined, text.slice(0, 2000), /^\s*</.test(text));
   }
 }
 

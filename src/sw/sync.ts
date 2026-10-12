@@ -38,6 +38,14 @@ interface SrcState {
   tokens?: number;
   tokensAt?: number;
   lastRun?: number;
+  /** why we are paused: only a real 429 is honored when the user opens the site or presses sync */
+  pauseReason?: 'rate' | 'blocked' | 'network';
+}
+
+/** A user action (visiting the site, pressing sync) may override every pause except a real rate limit. */
+function pausedFor(st: SrcState, reason: string, now: number) {
+  if (st.pausedUntil <= now) return false;
+  return st.pauseReason === 'rate' || !(reason === 'user' || reason === 'page');
 }
 
 const BUCKET_CAP = 25;
@@ -141,7 +149,16 @@ export class Syncer {
   }
 
   private async fail(src: Source, st: SrcState, e: unknown, metas: Map<string, ConvMeta>): Promise<boolean> {
+    const site = src === 'chatgpt' ? 'chatgpt.com' : 'claude.ai';
+    if (e instanceof HttpError && e.blocked) {
+      st.pauseReason = 'blocked';
+      st.pausedUntil = Date.now() + 5 * MIN;
+      await saveState(src, st);
+      await this.report(src, metas, { state: 'paused', pausedUntil: st.pausedUntil, message: `${site} asked this browser for a quick check. Open ${site} in a tab once and syncing continues.` });
+      return true;
+    }
     if (e instanceof HttpError && (e.rateLimited || e.status === 0)) {
+      st.pauseReason = e.status === 0 ? 'network' : 'rate';
       const base = src === 'chatgpt' ? 30 * MIN : 2 * MIN;
       st.backoff = Math.min(src === 'chatgpt' ? 4 * 60 * MIN : 30 * MIN, st.backoff ? st.backoff * 2 : base);
       if (e.status === 0) st.backoff = Math.min(st.backoff, 5 * MIN);
@@ -177,7 +194,7 @@ export class Syncer {
     const st = await loadState('claude');
     const now = Date.now();
     const metas = await this.metasFor('claude');
-    if (st.pausedUntil > now && reason !== 'user') {
+    if (pausedFor(st, reason, now)) {
       await this.report('claude', metas, { state: 'paused', pausedUntil: st.pausedUntil });
       return;
     }
@@ -212,6 +229,8 @@ export class Syncer {
         }
       }
       st.backoff = 0;
+      st.pausedUntil = 0;
+      st.pauseReason = undefined;
       await saveState('claude', st);
     } catch (e) {
       if (await this.fail('claude', st, e, metas)) return;
@@ -335,7 +354,7 @@ export class Syncer {
     const st = await loadState('chatgpt');
     const now = Date.now();
     const metas = await this.metasFor('chatgpt');
-    if (st.pausedUntil > now) {
+    if (pausedFor(st, reason, now)) {
       await this.report('chatgpt', metas, { state: 'paused', pausedUntil: st.pausedUntil });
       return;
     }
@@ -370,6 +389,8 @@ export class Syncer {
       }
       if (!main.fullDone || now - main.lastFull > 7 * DAY) await this.chatgptFullList(st, metas);
       st.backoff = 0;
+      st.pausedUntil = 0;
+      st.pauseReason = undefined;
       await saveState('chatgpt', st);
     } catch (e) {
       if (await this.fail('chatgpt', st, e, metas)) return;

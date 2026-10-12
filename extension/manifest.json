@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ChatSearch: real search for Claude and ChatGPT",
   "short_name": "ChatSearch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Instant full-text, fuzzy and semantic search across every Claude and ChatGPT chat you've had. Local index, no account.",
   "minimum_chrome_version": "120",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },

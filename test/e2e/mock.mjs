@@ -126,6 +126,7 @@ function chatPage(kind, id) {
 export function startMock({ port = 8443, data = makeData(), gptBurst = 1e9 } = {}) {
   const stats = { gptServed: new Set(), claudeDetail: 0, gptDetail: 0, gptList: 0, claudeList: 0, gpt429: 0, unauth: 0, requests: [] };
   let gptRemaining = gptBurst;
+  let challenge = false; // when on, claude.ai API calls get a Cloudflare-style HTML challenge page
   const byClaude = new Map(data.claude.map((c) => [c.uuid, c]));
   const byGpt = new Map(data.gpt.map((c) => [c.id, c]));
   const server = https.createServer(cert(), (req, res) => {
@@ -140,6 +141,11 @@ export function startMock({ port = 8443, data = makeData(), gptBurst = 1e9 } = {
     stats.requests.push(`${req.method} ${host}${p}`);
     if (host === 'claude.ai') {
       if (p.startsWith('/chat/')) return send(200, chatPage('claude', p.slice(6)), 'text/html');
+      if (p.startsWith('/api/') && challenge) {
+        stats.challenged = (stats.challenged || 0) + 1;
+        res.writeHead(403, { 'content-type': 'text/html; charset=UTF-8', 'cf-mitigated': 'challenge', 'cache-control': 'no-store' });
+        return res.end('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>Checking your browser</body></html>');
+      }
       if (p.startsWith('/api/') && !cookies.includes('sessionKey=')) {
         stats.unauth++;
         return send(403, { type: 'error', error: { type: 'permission_error' } });
@@ -205,5 +211,5 @@ export function startMock({ port = 8443, data = makeData(), gptBurst = 1e9 } = {
     data.claude.unshift(c);
     byClaude.set(c.uuid, c);
   };
-  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve({ server, stats, data, addClaude, refill: (k) => (gptRemaining = k) })));
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve({ server, stats, data, addClaude, refill: (k) => (gptRemaining = k), setChallenge: (on) => (challenge = on) })));
 }
