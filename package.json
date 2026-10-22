@@ -19,7 +19,7 @@
     "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.5",
     "fflate": "^0.8.3",
-    "markdown-it": "^15.0.2",
+    "markdown-it": "^15.0.3",
     "playwright": "^1.64.0",
     "preact": "^11.0.1",
     "typescript": "^7.0.2"
